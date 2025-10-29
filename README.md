@@ -60,18 +60,21 @@ response-1/
 ## 🤖 Agent Architecture
 
 ### Coordinator Agent
+
 - **Role**: Orchestrates the entire FOIA processing workflow
 - **Model**: `nvidia-nemotron-nano-9b-v2` with thinking tokens
 - **Capabilities**: Request analysis, execution planning, agent coordination
 - **Pattern**: ReAct (Reason → Act → Observe)
 
 ### Document Researcher Agent
+
 - **Role**: Searches and analyzes local document repositories
 - **Model**: `nvidia-nemotron-nano-9b-v2`
 - **Capabilities**: Semantic search, relevance scoring, content extraction
 - **Features**: PII detection, source attribution, bias awareness
 
 ### Report Generator Agent
+
 - **Role**: Creates comprehensive FOIA response reports
 - **Model**: `nvidia-nemotron-nano-9b-v2`
 - **Capabilities**: Content synthesis, legal compliance, structured reporting
@@ -108,6 +111,7 @@ The project includes a complete sample demonstration:
 - **Expected Output**: Professional FOIA response with source attribution
 
 Try the demo:
+
 ```bash
 foia-buddy -i sample_data/foia-request.md -o demo-output/
 ```
@@ -115,23 +119,27 @@ foia-buddy -i sample_data/foia-request.md -o demo-output/
 ## 🎯 Hackathon Criteria Alignment
 
 ### ✅ Agentic Workflows
+
 - **Multi-Agent Coordination**: Coordinator orchestrates specialized agents
 - **Autonomous Reasoning**: Agents make independent decisions using Nemotron thinking
 - **ReAct Patterns**: Reason → Act → Observe loops for complex problem-solving
 
 ### ✅ NVIDIA Nemotron Excellence
+
 - **Primary Model**: Uses `nvidia-nemotron-nano-9b-v2` throughout
 - **Advanced Features**: Thinking tokens for complex reasoning
 - **Function Calling**: Agent communication and tool integration
 - **Agentic Strengths**: Planning, reasoning, and autonomous decision-making
 
 ### ✅ Real-World Impact
+
 - **Government Transparency**: Automates critical FOIA processing
 - **Legal Compliance**: Ensures proper documentation and attribution
 - **Efficiency Gains**: Reduces manual processing time significantly
 - **Scalable Solution**: Extensible architecture for additional use cases
 
 ### ✅ Innovation Beyond Prompting
+
 - **Multi-Step Workflows**: Complex coordination across multiple agents
 - **Tool Integration**: File system operations, document analysis
 - **Dynamic Planning**: Adaptive execution based on request complexity
@@ -148,6 +156,7 @@ foia-buddy -i sample_data/foia-request.md -o demo-output/
 ## 📝 Development
 
 ### Project Structure
+
 ```
 foia_buddy/
 ├── agents/              # Agent implementations
@@ -178,6 +187,7 @@ foia_buddy/
 ## 📞 Support
 
 For questions about FOIA-Buddy:
+
 - Review the `PLAN.md` for detailed implementation notes
 - Check sample outputs in the demo
 - Examine agent implementations for extension patterns
