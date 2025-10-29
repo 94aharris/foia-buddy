@@ -9,7 +9,7 @@ FOIA-Buddy automates the complex process of FOIA request analysis and response g
 - **Analyze** FOIA requests using advanced reasoning
 - **Coordinate** multiple specialized agents using ReAct patterns
 - **Search** local PDF directories for relevant documents
-- **Parse** PDFs to markdown using NVIDIA Parse Nemotron
+- **Parse** PDFs to markdown using NVIDIA Nemotron VL (Vision-Language model)
 - **Search** local markdown document repositories with semantic understanding
 - **Generate** comprehensive, compliant response reports
 - **Flag** sensitive content requiring redaction review
@@ -21,11 +21,15 @@ FOIA-Buddy automates the complex process of FOIA request analysis and response g
 This project specifically leverages NVIDIA Nemotron models for their superior agentic capabilities:
 
 - **Primary Model**: `nvidia/nvidia-nemotron-nano-9b-v2` for reasoning and coordination
-  - Powers 4 intelligent agents: Coordinator, Document Researcher, Public FOIA Search, and Report Generator
+  - Powers 5 intelligent agents: Coordinator, Local PDF Search, Document Researcher, Public FOIA Search, and Report Generator
   - Thinking tokens (512-1024 tokens) enable complex multi-step reasoning
-- **Parse Model**: `nvidia/nemotron-parse` for PDF to markdown conversion
-  - Specialized document parsing with structure preservation
-  - Handles tables, multi-column layouts, and complex PDF formats
+- **Document Parse Model**: `nvidia/nemotron-parse` for PDF parsing and document understanding
+  - Specialized model for document parsing with multiple output modes
+  - Handles scanned documents with OCR-like capabilities
+  - Describes charts, graphs, and visual elements in natural language
+  - Preserves document structure while extracting text from complex layouts
+  - Superior to text-only parsing for real-world government documents
+  - Supports markdown with/without bounding boxes and detection-only modes
 - **Advanced Reasoning**: Thinking tokens for complex decision-making and step-by-step planning
 - **Function Calling**: Agent-to-agent communication and tool use (planned feature)
 - **Multi-Step Planning**: Autonomous workflow orchestration with ReAct patterns
@@ -55,16 +59,18 @@ foia-buddy -i sample_data/foia-request.md -o response-1/
 foia-buddy -i sample_data/foia-request.md -o response-1/ --verbose
 ```
 
-### PDF Parsing with NVIDIA Parse Nemotron
+### PDF Parsing with NVIDIA Nemotron Parse
 
-To demonstrate the PDF parsing capability:
+To demonstrate the enhanced PDF parsing capability with specialized document understanding:
 
-1. **Add PDFs** to `sample_data/pdfs/` directory
+1. **Add PDFs** to `sample_data/pdfs/` directory (including scanned documents!)
 2. **Run the processor** - it will automatically:
    - Find PDFs in the directory
    - Rank them by relevance to the FOIA request
-   - Parse them to markdown using **NVIDIA Parse Nemotron**
-   - Include parsed content in the final report
+   - Parse them to markdown using **NVIDIA Nemotron Parse** (specialized document parsing model)
+   - Extract text from scanned documents with OCR-like capabilities
+   - Describe visual elements (charts, graphs) in natural language
+   - Include parsed content with visual descriptions in the final report
 
 ```bash
 # Add your PDFs
@@ -89,7 +95,7 @@ response-1/
 ├── downloaded_pdfs/          # PDFs from public FOIA library (if available)
 │   └── *.pdf                 # Downloaded public documents
 └── parsed_documents/         # Markdown versions of PDFs (nvidia/nemotron-parse)
-    └── *.md                  # Parsed document content
+    └── *.md                  # Parsed document content with visual descriptions
 ```
 
 ## 🤖 Agent Architecture
@@ -101,20 +107,24 @@ FOIA-Buddy leverages multiple NVIDIA models for different tasks:
 | Agent | Model | Purpose |
 |-------|-------|---------|
 | **Coordinator Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Request analysis, execution planning, agent orchestration |
+| **Local PDF Search Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Local PDF discovery, filename analysis, relevance ranking |
+| **PDF Parser Agent** | `nvidia/nemotron-parse` | PDF to markdown conversion with visual understanding, OCR |
 | **Document Researcher Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Semantic search, document analysis, relevance scoring |
 | **Public FOIA Search Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Web scraping analysis, document relevance determination |
 | **Report Generator Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Report synthesis, compliance analysis, content generation |
-| **PDF Parser Agent** | `nvidia/nemotron-parse` | PDF to markdown conversion, structure preservation |
 | **HTML Report Generator** | Non-LLM (Direct Processing) | HTML generation, Mermaid diagram creation |
 
 **Key Model Features:**
 - **nvidia-nemotron-nano-9b-v2**: Advanced reasoning model with thinking tokens (512-1024 tokens) for complex decision-making
   - Enables step-by-step reasoning before generating responses
-  - Used for all LLM-powered agents (Coordinator, Researcher, Report Generator, Public Search)
+  - Used for 5 LLM-powered agents (Coordinator, Local PDF Search, Researcher, Report Generator, Public Search)
   - Temperature: 0.6, Top-p: 0.95 for balanced creativity and accuracy
-- **nvidia/nemotron-parse**: Specialized document parsing model for PDF conversion with table and structure preservation
-  - Handles complex PDF layouts, multi-column text, and embedded tables
-  - Outputs clean markdown while preserving document structure
+- **nvidia/nemotron-parse**: Specialized document parsing model for multimodal document understanding
+  - Handles scanned PDFs and image-based documents with OCR capabilities
+  - Describes visual elements (charts, graphs, diagrams) in natural language
+  - Converts PDF pages to markdown while preserving structure and visual context
+  - Supports multiple parsing modes: markdown_bbox, markdown_no_bbox, detection_only
+  - Max tokens: 16384 for accurate long-form document extraction
 
 ### Coordinator Agent
 
@@ -133,11 +143,17 @@ FOIA-Buddy leverages multiple NVIDIA models for different tasks:
 
 ### PDF Parser Agent
 
-- **Role**: Converts PDF documents to markdown using NVIDIA Parse Nemotron
-- **Model**: `nvidia/nemotron-parse`
-- **Capabilities**: PDF parsing, document conversion, markdown generation
-- **Features**: Text extraction, table preservation, structure maintenance, multi-page handling
-- **Purpose**: Makes document content easier for other agents and end-users to evaluate
+- **Role**: Converts PDF documents to markdown using NVIDIA Nemotron Parse model
+- **Model**: `nvidia/nemotron-parse` (Specialized Document Parser)
+- **Capabilities**: PDF parsing, visual understanding, document conversion, markdown generation, OCR
+- **Features**:
+  - Extracts text from native and scanned PDFs
+  - Describes charts, graphs, and visual elements in natural language (e.g., "[Chart: Budget allocation breakdown showing 45% for operations]")
+  - Handles complex multi-column layouts
+  - Preserves tables and document structure
+  - Superior handling of real-world government documents (often scanned or image-heavy)
+  - Supports multiple parsing modes (markdown_bbox, markdown_no_bbox, detection_only)
+- **Purpose**: Makes document content easier for other agents and end-users to evaluate, with enhanced visual understanding
 
 ### Public FOIA Search Agent
 
@@ -243,7 +259,7 @@ foia-buddy -i sample_data/foia-request.md -o demo-output/
 - Python 3.8+
 - NVIDIA API access (get yours at build.nvidia.com)
   - Required for `nvidia-nemotron-nano-9b-v2` (reasoning/coordination)
-  - Required for `nvidia/nemotron-parse` (PDF to markdown conversion)
+  - Required for `nvidia/nemotron-parse` (PDF parsing with visual understanding)
 - OpenAI-compatible client library
 - Click for CLI interface
 - Pydantic for data validation
@@ -260,7 +276,7 @@ foia_buddy/
 │   ├── base.py         # Base agent class and registry
 │   ├── coordinator.py  # Main coordination agent
 │   ├── local_pdf_search.py     # Local PDF directory search agent
-│   ├── pdf_parser.py   # PDF to markdown parser agent (Parse Nemotron)
+│   ├── pdf_parser.py   # PDF to markdown parser agent (Nemotron VL)
 │   ├── document_researcher.py  # Local markdown document search agent
 │   ├── report_generator.py     # Report creation agent
 │   └── html_report_generator.py # HTML visualization report agent
@@ -284,12 +300,12 @@ sample_data/
 
 ## 🏅 Competition Advantages
 
-- **Pure Nemotron Focus**: Demonstrates Nemotron's agentic capabilities
+- **Pure Nemotron Focus**: Demonstrates Nemotron's agentic and multimodal capabilities
 - **Complete Workflow**: End-to-end FOIA processing automation
 - **Extensible Design**: Easy to add new agents and capabilities
 - **Real-World Utility**: Addresses actual government transparency needs
 - **Advanced Reasoning**: Showcases thinking tokens and multi-step planning
-- **PDF Parsing**: Showcases NVIDIA Parse Nemotron for document conversion
+- **Specialized Parsing**: Showcases NVIDIA Nemotron Parse for document parsing with visual understanding and OCR
 
 ## 📝 Current Limitations & Future Work
 
@@ -297,11 +313,14 @@ sample_data/
 
 ✅ **Working Features:**
 - Local PDF search and discovery
-- PDF-to-markdown conversion using NVIDIA Parse Nemotron
+- PDF-to-markdown conversion using NVIDIA Nemotron Parse (specialized document parsing model)
+- Visual element description (charts, graphs) in parsed documents
+- OCR-like capabilities for scanned PDFs
+- Multiple parsing modes (markdown with/without bounding boxes, detection only)
 - Local markdown document research
 - Multi-agent coordination with ReAct pattern
 - Comprehensive report generation
-- Interactive HTML reports with execution diagrams
+- Interactive HTML reports with execution diagrams showing models used
 
 ⚠️ **Known Limitations:**
 - **Public FOIA Library Search**: The State Department's FOIA portal (foia.state.gov) does not have a working public API for automated searches. All GET/POST requests return zero results.
