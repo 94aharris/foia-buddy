@@ -29,9 +29,11 @@ Your role is to:
 
 Available Sub-Agents:
 - document_researcher: Searches local document repositories for relevant files
-- public_foia_search: Searches the State Department's public FOIA library for previously released documents
+- public_foia_search: Searches the State Department's public FOIA library for previously released documents (currently unavailable)
+- local_pdf_search: Searches local PDF directory for relevant documents
 - pdf_parser: Converts PDF documents to markdown using NVIDIA Parse Nemotron
 - report_generator: Creates comprehensive reports from gathered information
+- html_report_generator: Creates interactive HTML reports with visual execution diagrams
 
 Use the ReAct pattern:
 1. REASON about the request complexity and information needs
@@ -97,7 +99,7 @@ Provide a detailed analysis and execution plan for processing this request using
             result_data = {
                 "coordination_plan": plan_data,
                 "raw_response": content,
-                "available_agents": ["document_researcher", "public_foia_search", "pdf_parser", "report_generator"],
+                "available_agents": ["document_researcher", "local_pdf_search", "pdf_parser", "report_generator", "html_report_generator"],
                 "execution_sequence": self._create_execution_sequence(plan_data)
             }
 
@@ -126,18 +128,18 @@ Provide a detailed analysis and execution plan for processing this request using
             "analysis": content[:500] + "..." if len(content) > 500 else content,
             "execution_plan": [
                 {
-                    "agent": "public_foia_search",
-                    "task": "Search public FOIA library and download relevant PDFs",
+                    "agent": "local_pdf_search",
+                    "task": "Search local PDF directory for relevant documents",
                     "priority": 1
                 },
                 {
                     "agent": "pdf_parser",
-                    "task": "Parse downloaded PDFs to markdown using Parse Nemotron",
+                    "task": "Parse found PDFs to markdown using Parse Nemotron",
                     "priority": 2
                 },
                 {
                     "agent": "document_researcher",
-                    "task": "Search local document repository for relevant files",
+                    "task": "Search local markdown document repository for relevant files",
                     "priority": 3
                 },
                 {

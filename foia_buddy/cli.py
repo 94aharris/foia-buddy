@@ -13,7 +13,9 @@ from .agents import (
     DocumentResearcherAgent,
     ReportGeneratorAgent,
     PublicFOIASearchAgent,
-    PDFParserAgent
+    LocalPDFSearchAgent,
+    PDFParserAgent,
+    HTMLReportGeneratorAgent
 )
 from .models import TaskMessage, FOIARequest
 
@@ -32,15 +34,19 @@ class FOIAProcessor:
         coordinator = CoordinatorAgent(self.nvidia_client)
         doc_researcher = DocumentResearcherAgent(self.nvidia_client)
         public_foia_search = PublicFOIASearchAgent(self.nvidia_client)
+        local_pdf_search = LocalPDFSearchAgent(self.nvidia_client)
         pdf_parser = PDFParserAgent(self.nvidia_client)
         report_generator = ReportGeneratorAgent(self.nvidia_client)
+        html_report_generator = HTMLReportGeneratorAgent(self.nvidia_client)
 
         # Register agents
         self.registry.register(coordinator)
         self.registry.register(doc_researcher)
         self.registry.register(public_foia_search)
+        self.registry.register(local_pdf_search)
         self.registry.register(pdf_parser)
         self.registry.register(report_generator)
+        self.registry.register(html_report_generator)
 
     async def process_foia_request(self, input_file: str, output_dir: str) -> Dict[str, Any]:
         """Process a FOIA request through the agent pipeline."""
@@ -81,44 +87,37 @@ class FOIAProcessor:
 
             click.echo(f"✅ Coordination complete. Plan: {coord_result.data.get('execution_sequence', [])}")
 
-            # Step 2: Search public FOIA library and download PDFs
-            click.echo("🔍 Searching public FOIA library...")
-            public_search = self.registry.get_agent("public_foia_search")
+            # Step 2: Search local PDF directory
+            click.echo("📁 Searching local PDF directory...")
+            local_pdf_search = self.registry.get_agent("local_pdf_search")
 
-            # Create download directory for PDFs
-            pdfs_dir = output_path / "downloaded_pdfs"
-
-            public_task = TaskMessage(
-                task_id="public_search_001",
-                agent_type="public_foia_search",
-                instructions="Search public FOIA library for previously released documents and download PDFs",
+            local_pdf_task = TaskMessage(
+                task_id="local_pdf_search_001",
+                agent_type="local_pdf_search",
+                instructions="Search local PDF directory for relevant documents",
                 context={
                     "foia_request": foia_content,
                     "coordination_plan": coord_result.data,
-                    "download_dir": str(pdfs_dir),
-                    "max_downloads": 10  # Limit downloads to top 10 relevant docs
+                    "max_pdfs": 20  # Limit to top 20 relevant PDFs
                 }
             )
 
-            public_result = await public_search.execute(public_task)
-            results["agent_results"]["public_foia_search"] = public_result.dict()
+            local_pdf_result = await local_pdf_search.execute(local_pdf_task)
+            results["agent_results"]["local_pdf_search"] = local_pdf_result.dict()
 
-            if not public_result.success:
-                click.echo("⚠️ Public FOIA search encountered issues, continuing...")
+            if not local_pdf_result.success:
+                click.echo("⚠️ Local PDF search encountered issues, continuing...")
+                pdf_paths = []
             else:
-                docs_found = public_result.data.get('total_documents_found', 0)
-                pdfs_downloaded = public_result.data.get('download_count', 0)
-                click.echo(f"✅ Public search complete. Found {docs_found} documents, downloaded {pdfs_downloaded} PDFs")
+                pdfs_found = local_pdf_result.data.get('total_pdfs_found', 0)
+                pdfs_selected = local_pdf_result.data.get('pdfs_selected', 0)
+                click.echo(f"✅ Local PDF search complete. Found {pdfs_found} PDFs, selected {pdfs_selected} for parsing")
+                pdf_paths = local_pdf_result.data.get('pdf_paths', [])
 
-            # Step 3: Parse downloaded PDFs to markdown
-            downloaded_pdfs = public_result.data.get('downloaded_pdfs', []) if public_result.success else []
-
-            if downloaded_pdfs:
-                click.echo(f"📄 Parsing {len(downloaded_pdfs)} PDFs to markdown...")
+            # Step 3: Parse found PDFs to markdown using VL model
+            if pdf_paths:
+                click.echo(f"📄 Parsing {len(pdf_paths)} PDFs to markdown using NVIDIA Nemotron VL...")
                 pdf_parser = self.registry.get_agent("pdf_parser")
-
-                # Extract PDF paths
-                pdf_paths = [doc['local_path'] for doc in downloaded_pdfs if doc.get('local_path')]
 
                 # Create parsed output directory
                 parsed_dir = output_path / "parsed_documents"
@@ -126,7 +125,7 @@ class FOIAProcessor:
                 parse_task = TaskMessage(
                     task_id="parse_001",
                     agent_type="pdf_parser",
-                    instructions="Parse PDF documents to markdown",
+                    instructions="Parse PDF documents to markdown using VL model",
                     context={
                         "pdf_paths": pdf_paths,
                         "output_dir": str(parsed_dir)
@@ -138,14 +137,14 @@ class FOIAProcessor:
 
                 if parse_result.success:
                     parsed_count = parse_result.data.get('parsed_count', 0)
-                    click.echo(f"✅ Successfully parsed {parsed_count} PDFs to markdown")
+                    click.echo(f"✅ Successfully parsed {parsed_count} PDFs to markdown with Nemotron VL")
                 else:
                     click.echo("⚠️ PDF parsing encountered issues, continuing with available data...")
             else:
-                click.echo("ℹ️ No PDFs downloaded, skipping parsing step")
+                click.echo("ℹ️ No PDFs found in sample_data/pdfs directory, skipping parsing step")
                 parse_result = None
 
-            # Step 4: Execute local document research
+            # Step 4: Execute local markdown document research
             click.echo("📚 Starting local document research...")
             doc_researcher = self.registry.get_agent("document_researcher")
 
@@ -156,7 +155,7 @@ class FOIAProcessor:
                 context={
                     "foia_request": foia_content,
                     "coordination_plan": coord_result.data,
-                    "public_documents": public_result.data if public_result.success else {},
+                    "local_pdf_results": local_pdf_result.data if local_pdf_result.success else {},
                     "parsed_documents": parse_result.data if parse_result and parse_result.success else {}
                 }
             )
@@ -180,7 +179,7 @@ class FOIAProcessor:
                 context={
                     "foia_request": foia_content,
                     "research_results": research_result.data,
-                    "public_foia_results": public_result.data if public_result.success else {},
+                    "local_pdf_results": local_pdf_result.data if local_pdf_result.success else {},
                     "parsed_pdf_results": parse_result.data if parse_result and parse_result.success else {},
                     "coordination_plan": coord_result.data
                 }
@@ -199,6 +198,31 @@ class FOIAProcessor:
 
             results["status"] = "completed"
             results["processing_time"] = time.time() - results["processing_start"]
+
+            # Step 7: Generate HTML report from metadata
+            click.echo("🎨 Generating interactive HTML report...")
+            html_generator = self.registry.get_agent("html_report_generator")
+
+            metadata_path = output_path / "processing_metadata.json"
+            html_output_path = output_path / "processing_report.html"
+
+            html_task = TaskMessage(
+                task_id="html_report_001",
+                agent_type="html_report_generator",
+                instructions="Generate interactive HTML report from processing metadata",
+                context={
+                    "metadata_path": str(metadata_path),
+                    "output_path": str(html_output_path)
+                }
+            )
+
+            html_result = await html_generator.execute(html_task)
+            results["agent_results"]["html_report_generator"] = html_result.dict()
+
+            if html_result.success:
+                click.echo(f"✅ HTML report generated: {html_output_path}")
+            else:
+                click.echo("⚠️ HTML report generation failed, continuing...")
 
             click.echo(f"🎉 FOIA processing complete! Results saved to: {output_dir}")
             return results

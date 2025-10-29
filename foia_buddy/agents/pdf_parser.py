@@ -9,45 +9,55 @@ from ..models import AgentResult, TaskMessage
 
 class PDFParserAgent(BaseAgent):
     """
-    Parses PDF documents using NVIDIA Parse Nemotron to convert them to markdown.
+    Parses PDF documents using NVIDIA Nemotron VL model to convert them to markdown.
 
-    This agent makes it easier for other agents and end-users to evaluate document
-    content by converting PDFs to well-formatted markdown.
+    This agent uses the Vision-Language model for enhanced document understanding,
+    including scanned PDFs, visual elements, and complex layouts. It makes it easier
+    for other agents and end-users to evaluate document content by converting PDFs
+    to well-formatted markdown with visual element descriptions.
     """
 
     def __init__(self, nvidia_client):
         super().__init__(
             name="pdf_parser",
-            description="Converts PDF documents to markdown using NVIDIA Parse Nemotron",
+            description="Converts PDF documents to markdown using NVIDIA Nemotron VL model",
             nvidia_client=nvidia_client
         )
         self.parse_api_url = "https://integrate.api.nvidia.com/v1/chat/completions"
-        self.model_name = "nvidia/nemotron-parse"
+        self.model_name = "nvidia/nemotron-nano-12b-v2-vl"
         self.add_capability("pdf_parsing")
         self.add_capability("document_conversion")
         self.add_capability("markdown_generation")
+        self.add_capability("visual_understanding")
+        self.add_capability("ocr")
 
     def get_system_prompt(self) -> str:
-        return """You are the PDF Parser Agent for FOIA-Buddy.
+        return """You are the PDF Parser Agent for FOIA-Buddy using NVIDIA Nemotron VL.
 
 Your role is to:
-1. PARSE PDF documents using NVIDIA Parse Nemotron
-2. CONVERT PDFs to well-formatted markdown
-3. EXTRACT text, tables, and structure from documents
-4. PROVIDE clean, readable markdown for other agents and end-users
+1. PARSE PDF documents using vision-language understanding
+2. CONVERT PDFs to well-formatted markdown with visual element descriptions
+3. EXTRACT text, tables, charts, diagrams, and structure from documents
+4. DESCRIBE visual elements (charts, graphs, images) in natural language
+5. HANDLE scanned documents with OCR-like capabilities
+6. PROVIDE comprehensive markdown for other agents and end-users
 
 When parsing PDFs:
-- Use Parse Nemotron for accurate text extraction
+- Extract all text accurately, including from scanned documents
 - Preserve document structure (headings, lists, tables)
+- Describe charts, graphs, and visual elements in detail
 - Maintain formatting and layout information
-- Handle multi-page documents efficiently
+- Handle complex multi-column layouts
+- Convert tables to markdown format
 - Flag any parsing errors or issues
 
 Output markdown that is:
 - Clean and well-formatted
+- Includes detailed descriptions of visual elements
 - Easy for other agents to analyze
 - Readable for human reviewers
-- Preserves important document metadata"""
+- Preserves important document metadata
+- Accessible with alternative text for visual content"""
 
     async def execute(self, task: TaskMessage) -> AgentResult:
         """Execute PDF parsing task."""
@@ -124,7 +134,7 @@ Output markdown that is:
 
     async def _parse_pdf(self, pdf_path: str, output_dir: Path) -> Dict[str, Any]:
         """
-        Parse a single PDF document using NVIDIA Parse Nemotron.
+        Parse a single PDF document using NVIDIA Nemotron VL model.
 
         Args:
             pdf_path: Path to the PDF file
@@ -141,8 +151,8 @@ Output markdown that is:
         # Read PDF as base64
         b64_str, mime = self._read_file_as_base64(pdf_path)
 
-        # Generate markdown using Parse Nemotron
-        markdown_content = await self._call_parse_nemotron(b64_str, mime)
+        # Generate markdown using VL model
+        markdown_content = await self._call_vl_model(b64_str, mime)
 
         # Save markdown to file
         markdown_filename = pdf_file.stem + ".md"
@@ -176,19 +186,17 @@ Output markdown that is:
 
         return b64, mime
 
-    async def _call_parse_nemotron(
+    async def _call_vl_model(
         self,
         b64_str: str,
-        mime: str,
-        include_bbox: bool = False
+        mime: str
     ) -> str:
         """
-        Call NVIDIA Parse Nemotron API to convert document to markdown.
+        Call NVIDIA Nemotron VL API to convert document to markdown.
 
         Args:
             b64_str: Base64-encoded document
             mime: MIME type of the document
-            include_bbox: Whether to include bounding box information
 
         Returns:
             Markdown content
@@ -198,11 +206,8 @@ Output markdown that is:
         except ImportError:
             raise ImportError("requests library required. Install with: pip install requests")
 
-        # Choose tool based on bbox preference
-        tool_name = "markdown_bbox" if include_bbox else "markdown_no_bbox"
-
         # Construct the content with data URI
-        media_tag = f'<img src="data:{mime};base64,{b64_str}" />'
+        data_uri = f"data:{mime};base64,{b64_str}"
 
         # Prepare API request
         headers = {
@@ -211,25 +216,46 @@ Output markdown that is:
             "Content-Type": "application/json",
         }
 
+        # Comprehensive prompt for document parsing
+        parsing_prompt = """Convert this PDF document to well-formatted markdown. Follow these guidelines:
+
+1. Extract all text content accurately
+2. Preserve document structure (headings, subheadings, lists, tables)
+3. Convert tables to markdown table format
+4. For any charts, graphs, or diagrams, provide detailed descriptions in [Chart: description] or [Diagram: description] format
+5. Maintain paragraph breaks and formatting
+6. Preserve bullet points and numbered lists
+7. Keep document metadata if visible (date, author, title, etc.)
+8. For scanned content, use OCR to extract text accurately
+
+Output only the markdown content without any additional commentary."""
+
         payload = {
             "model": self.model_name,
             "messages": [
                 {
-                    "role": "user",
-                    "content": media_tag
-                }
-            ],
-            "tools": [
+                    "role": "system",
+                    "content": "/think"  # Enable thinking mode for better reasoning
+                },
                 {
-                    "type": "function",
-                    "function": {"name": tool_name}
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": parsing_prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": data_uri
+                            }
+                        }
+                    ]
                 }
             ],
-            "tool_choice": {
-                "type": "function",
-                "function": {"name": tool_name}
-            },
             "max_tokens": 16384,  # Increased for longer documents
+            "temperature": 0.5,  # Lower temperature for more accurate extraction
+            "top_p": 1.0
         }
 
         # Make API call
@@ -237,50 +263,32 @@ Output markdown that is:
             self.parse_api_url,
             headers=headers,
             json=payload,
-            timeout=120
+            timeout=180  # Longer timeout for VL processing
         )
 
         try:
             response.raise_for_status()
         except requests.HTTPError as e:
-            raise Exception(f"Parse Nemotron API error: {response.status_code} - {response.text}")
+            raise Exception(f"VL Model API error: {response.status_code} - {response.text}")
 
         # Extract markdown from response
         response_data = response.json()
 
-        # The markdown content is in the tool call response
         try:
             choices = response_data.get("choices", [])
             if not choices:
-                raise ValueError("No choices in Parse Nemotron response")
+                raise ValueError("No choices in VL model response")
 
             message = choices[0].get("message", {})
-            tool_calls = message.get("tool_calls", [])
+            content = message.get("content", "")
 
-            if not tool_calls:
-                raise ValueError("No tool calls in Parse Nemotron response")
+            if not content:
+                raise ValueError("No content in VL model response")
 
-            # The markdown is in the function arguments
-            function_args = tool_calls[0].get("function", {}).get("arguments", "{}")
+            return content.strip()
 
-            # Parse the arguments JSON
-            import json
-            args_dict = json.loads(function_args)
-
-            # The markdown content should be in the arguments
-            markdown = args_dict.get("markdown", "")
-
-            if not markdown:
-                # Try alternate paths in the response
-                markdown = args_dict.get("content", "")
-
-            if not markdown:
-                raise ValueError("No markdown content found in Parse Nemotron response")
-
-            return markdown
-
-        except (KeyError, IndexError, json.JSONDecodeError) as e:
-            raise Exception(f"Error parsing Parse Nemotron response: {str(e)}")
+        except (KeyError, IndexError) as e:
+            raise Exception(f"Error parsing VL model response: {str(e)}")
 
     async def parse_multiple_pdfs(
         self,
