@@ -30,6 +30,7 @@ Your role is to:
 Available Sub-Agents:
 - document_researcher: Searches local document repositories for relevant files
 - public_foia_search: Searches the State Department's public FOIA library for previously released documents
+- pdf_parser: Converts PDF documents to markdown using NVIDIA Parse Nemotron
 - report_generator: Creates comprehensive reports from gathered information
 
 Use the ReAct pattern:
@@ -96,7 +97,7 @@ Provide a detailed analysis and execution plan for processing this request using
             result_data = {
                 "coordination_plan": plan_data,
                 "raw_response": content,
-                "available_agents": ["document_researcher", "public_foia_search", "report_generator"],
+                "available_agents": ["document_researcher", "public_foia_search", "pdf_parser", "report_generator"],
                 "execution_sequence": self._create_execution_sequence(plan_data)
             }
 
@@ -126,18 +127,23 @@ Provide a detailed analysis and execution plan for processing this request using
             "execution_plan": [
                 {
                     "agent": "public_foia_search",
-                    "task": "Search public FOIA library for previously released documents",
+                    "task": "Search public FOIA library and download relevant PDFs",
                     "priority": 1
+                },
+                {
+                    "agent": "pdf_parser",
+                    "task": "Parse downloaded PDFs to markdown using Parse Nemotron",
+                    "priority": 2
                 },
                 {
                     "agent": "document_researcher",
                     "task": "Search local document repository for relevant files",
-                    "priority": 2
+                    "priority": 3
                 },
                 {
                     "agent": "report_generator",
                     "task": "Generate final FOIA response report",
-                    "priority": 3
+                    "priority": 4
                 }
             ],
             "priority": 3,

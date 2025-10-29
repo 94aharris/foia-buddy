@@ -12,7 +12,8 @@ from .agents import (
     CoordinatorAgent,
     DocumentResearcherAgent,
     ReportGeneratorAgent,
-    PublicFOIASearchAgent
+    PublicFOIASearchAgent,
+    PDFParserAgent
 )
 from .models import TaskMessage, FOIARequest
 
@@ -31,12 +32,14 @@ class FOIAProcessor:
         coordinator = CoordinatorAgent(self.nvidia_client)
         doc_researcher = DocumentResearcherAgent(self.nvidia_client)
         public_foia_search = PublicFOIASearchAgent(self.nvidia_client)
+        pdf_parser = PDFParserAgent(self.nvidia_client)
         report_generator = ReportGeneratorAgent(self.nvidia_client)
 
         # Register agents
         self.registry.register(coordinator)
         self.registry.register(doc_researcher)
         self.registry.register(public_foia_search)
+        self.registry.register(pdf_parser)
         self.registry.register(report_generator)
 
     async def process_foia_request(self, input_file: str, output_dir: str) -> Dict[str, Any]:
@@ -78,17 +81,22 @@ class FOIAProcessor:
 
             click.echo(f"✅ Coordination complete. Plan: {coord_result.data.get('execution_sequence', [])}")
 
-            # Step 2: Search public FOIA library
+            # Step 2: Search public FOIA library and download PDFs
             click.echo("🔍 Searching public FOIA library...")
             public_search = self.registry.get_agent("public_foia_search")
+
+            # Create download directory for PDFs
+            pdfs_dir = output_path / "downloaded_pdfs"
 
             public_task = TaskMessage(
                 task_id="public_search_001",
                 agent_type="public_foia_search",
-                instructions="Search public FOIA library for previously released documents",
+                instructions="Search public FOIA library for previously released documents and download PDFs",
                 context={
                     "foia_request": foia_content,
-                    "coordination_plan": coord_result.data
+                    "coordination_plan": coord_result.data,
+                    "download_dir": str(pdfs_dir),
+                    "max_downloads": 10  # Limit downloads to top 10 relevant docs
                 }
             )
 
@@ -98,9 +106,46 @@ class FOIAProcessor:
             if not public_result.success:
                 click.echo("⚠️ Public FOIA search encountered issues, continuing...")
             else:
-                click.echo(f"✅ Public search complete. Found {public_result.data.get('total_documents_found', 0)} publicly available documents")
+                docs_found = public_result.data.get('total_documents_found', 0)
+                pdfs_downloaded = public_result.data.get('download_count', 0)
+                click.echo(f"✅ Public search complete. Found {docs_found} documents, downloaded {pdfs_downloaded} PDFs")
 
-            # Step 3: Execute local document research
+            # Step 3: Parse downloaded PDFs to markdown
+            downloaded_pdfs = public_result.data.get('downloaded_pdfs', []) if public_result.success else []
+
+            if downloaded_pdfs:
+                click.echo(f"📄 Parsing {len(downloaded_pdfs)} PDFs to markdown...")
+                pdf_parser = self.registry.get_agent("pdf_parser")
+
+                # Extract PDF paths
+                pdf_paths = [doc['local_path'] for doc in downloaded_pdfs if doc.get('local_path')]
+
+                # Create parsed output directory
+                parsed_dir = output_path / "parsed_documents"
+
+                parse_task = TaskMessage(
+                    task_id="parse_001",
+                    agent_type="pdf_parser",
+                    instructions="Parse PDF documents to markdown",
+                    context={
+                        "pdf_paths": pdf_paths,
+                        "output_dir": str(parsed_dir)
+                    }
+                )
+
+                parse_result = await pdf_parser.execute(parse_task)
+                results["agent_results"]["pdf_parser"] = parse_result.dict()
+
+                if parse_result.success:
+                    parsed_count = parse_result.data.get('parsed_count', 0)
+                    click.echo(f"✅ Successfully parsed {parsed_count} PDFs to markdown")
+                else:
+                    click.echo("⚠️ PDF parsing encountered issues, continuing with available data...")
+            else:
+                click.echo("ℹ️ No PDFs downloaded, skipping parsing step")
+                parse_result = None
+
+            # Step 4: Execute local document research
             click.echo("📚 Starting local document research...")
             doc_researcher = self.registry.get_agent("document_researcher")
 
@@ -111,7 +156,8 @@ class FOIAProcessor:
                 context={
                     "foia_request": foia_content,
                     "coordination_plan": coord_result.data,
-                    "public_documents": public_result.data if public_result.success else {}
+                    "public_documents": public_result.data if public_result.success else {},
+                    "parsed_documents": parse_result.data if parse_result and parse_result.success else {}
                 }
             )
 
@@ -123,7 +169,7 @@ class FOIAProcessor:
 
             click.echo(f"✅ Local research complete. Found {research_result.data.get('relevant_documents_found', 0)} relevant documents")
 
-            # Step 4: Generate report
+            # Step 5: Generate report
             click.echo("📝 Generating final report...")
             report_generator = self.registry.get_agent("report_generator")
 
@@ -135,6 +181,7 @@ class FOIAProcessor:
                     "foia_request": foia_content,
                     "research_results": research_result.data,
                     "public_foia_results": public_result.data if public_result.success else {},
+                    "parsed_pdf_results": parse_result.data if parse_result and parse_result.success else {},
                     "coordination_plan": coord_result.data
                 }
             )
@@ -147,7 +194,7 @@ class FOIAProcessor:
 
             click.echo("✅ Report generation complete")
 
-            # Step 5: Save outputs
+            # Step 6: Save outputs
             self._save_outputs(output_path, report_result.data, results)
 
             results["status"] = "completed"

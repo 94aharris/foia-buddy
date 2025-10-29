@@ -9,6 +9,8 @@ FOIA-Buddy automates the complex process of FOIA request analysis and response g
 - **Analyze** FOIA requests using advanced reasoning
 - **Coordinate** multiple specialized agents using ReAct patterns
 - **Search** public FOIA libraries for previously released documents
+- **Download** relevant PDFs from public repositories automatically
+- **Parse** PDFs to markdown using NVIDIA Parse Nemotron
 - **Search** local document repositories with semantic understanding
 - **Generate** comprehensive, compliant response reports
 - **Flag** sensitive content requiring redaction review
@@ -18,6 +20,7 @@ FOIA-Buddy automates the complex process of FOIA request analysis and response g
 This project specifically leverages NVIDIA Nemotron models for their superior agentic capabilities:
 
 - **Primary Model**: `nvidia-nemotron-nano-9b-v2` for reasoning and coordination
+- **Parse Model**: `nvidia/nemotron-parse` for PDF to markdown conversion
 - **Advanced Reasoning**: Thinking tokens for complex decision-making
 - **Function Calling**: Agent-to-agent communication and tool use
 - **Multi-Step Planning**: Autonomous workflow orchestration
@@ -55,7 +58,11 @@ response-1/
 ├── executive_summary.md      # Executive summary of findings
 ├── compliance_notes.md       # Legal compliance information
 ├── redaction_review.txt      # Items flagged for redaction
-└── processing_metadata.json  # Processing details and metrics
+├── processing_metadata.json  # Processing details and metrics
+├── downloaded_pdfs/          # PDFs from public FOIA library
+│   └── *.pdf                 # Downloaded public documents
+└── parsed_documents/         # Markdown versions of PDFs
+    └── *.md                  # Parsed document content
 ```
 
 ## 🤖 Agent Architecture
@@ -71,9 +78,17 @@ response-1/
 
 - **Role**: Searches the State Department's public FOIA library for previously released documents
 - **Model**: `nvidia-nemotron-nano-9b-v2`
-- **Capabilities**: Web scraping, keyword extraction, precedent research, relevance scoring
-- **Features**: Multi-keyword search, result deduplication, case number extraction
+- **Capabilities**: Web scraping, keyword extraction, precedent research, relevance scoring, PDF downloading
+- **Features**: Multi-keyword search, result deduplication, case number extraction, automatic PDF download
 - **Data Source**: https://foia.state.gov/FOIALIBRARY/SearchResults.aspx
+
+### PDF Parser Agent
+
+- **Role**: Converts PDF documents to markdown using NVIDIA Parse Nemotron
+- **Model**: `nvidia/nemotron-parse`
+- **Capabilities**: PDF parsing, document conversion, markdown generation
+- **Features**: Text extraction, table preservation, structure maintenance, multi-page handling
+- **Purpose**: Makes document content easier for other agents and end-users to evaluate
 
 ### Document Researcher Agent
 
@@ -174,6 +189,7 @@ foia_buddy/
 │   ├── base.py         # Base agent class and registry
 │   ├── coordinator.py  # Main coordination agent
 │   ├── public_foia_search.py   # Public FOIA library search agent
+│   ├── pdf_parser.py   # PDF to markdown parser agent
 │   ├── document_researcher.py  # Local document search agent
 │   └── report_generator.py     # Report creation agent
 ├── models/             # Data models and messages

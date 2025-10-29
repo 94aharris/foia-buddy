@@ -3,6 +3,7 @@ from .coordinator import CoordinatorAgent
 from .document_researcher import DocumentResearcherAgent
 from .report_generator import ReportGeneratorAgent
 from .public_foia_search import PublicFOIASearchAgent
+from .pdf_parser import PDFParserAgent
 
 __all__ = [
     "BaseAgent",
@@ -10,5 +11,6 @@ __all__ = [
     "CoordinatorAgent",
     "DocumentResearcherAgent",
     "ReportGeneratorAgent",
-    "PublicFOIASearchAgent"
+    "PublicFOIASearchAgent",
+    "PDFParserAgent"
 ]

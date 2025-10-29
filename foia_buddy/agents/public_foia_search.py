@@ -546,3 +546,65 @@ Provide:
         recommendations.append("Cross-reference with local document repository for additional context")
 
         return recommendations
+
+    async def _download_documents(
+        self,
+        documents: List[Dict[str, Any]],
+        download_dir: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Download PDF documents from the public FOIA library.
+
+        Args:
+            documents: List of document metadata with URLs
+            download_dir: Directory to save downloaded PDFs
+
+        Returns:
+            List of successfully downloaded documents with local paths
+        """
+        try:
+            import requests
+        except ImportError:
+            return []
+
+        # Create download directory
+        download_path = Path(download_dir)
+        download_path.mkdir(parents=True, exist_ok=True)
+
+        downloaded = []
+
+        for doc in documents:
+            url = doc.get("url")
+            if not url:
+                continue
+
+            try:
+                # Download the PDF
+                response = requests.get(url, timeout=60, stream=True)
+                response.raise_for_status()
+
+                # Generate filename from case number or subject
+                case_number = doc.get("case_number", "unknown")
+                safe_case = "".join(c if c.isalnum() or c in "-_" else "_" for c in case_number)
+
+                filename = f"{safe_case}.pdf"
+                filepath = download_path / filename
+
+                # Save PDF
+                with open(filepath, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+                # Add download info to document
+                doc_with_download = doc.copy()
+                doc_with_download["downloaded"] = True
+                doc_with_download["local_path"] = str(filepath)
+                doc_with_download["local_filename"] = filename
+
+                downloaded.append(doc_with_download)
+
+            except Exception as e:
+                # Skip failed downloads but continue with others
+                continue
+
+        return downloaded
