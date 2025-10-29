@@ -8,7 +8,8 @@ FOIA-Buddy automates the complex process of FOIA request analysis and response g
 
 - **Analyze** FOIA requests using advanced reasoning
 - **Coordinate** multiple specialized agents using ReAct patterns
-- **Search** document repositories with semantic understanding
+- **Search** public FOIA libraries for previously released documents
+- **Search** local document repositories with semantic understanding
 - **Generate** comprehensive, compliant response reports
 - **Flag** sensitive content requiring redaction review
 
@@ -65,6 +66,14 @@ response-1/
 - **Model**: `nvidia-nemotron-nano-9b-v2` with thinking tokens
 - **Capabilities**: Request analysis, execution planning, agent coordination
 - **Pattern**: ReAct (Reason → Act → Observe)
+
+### Public FOIA Search Agent
+
+- **Role**: Searches the State Department's public FOIA library for previously released documents
+- **Model**: `nvidia-nemotron-nano-9b-v2`
+- **Capabilities**: Web scraping, keyword extraction, precedent research, relevance scoring
+- **Features**: Multi-keyword search, result deduplication, case number extraction
+- **Data Source**: https://foia.state.gov/FOIALIBRARY/SearchResults.aspx
 
 ### Document Researcher Agent
 
@@ -152,6 +161,8 @@ foia-buddy -i sample_data/foia-request.md -o demo-output/
 - OpenAI-compatible client library
 - Click for CLI interface
 - Pydantic for data validation
+- Requests and BeautifulSoup4 for web scraping
+- Internet connection for public FOIA library access
 
 ## 📝 Development
 
@@ -162,7 +173,8 @@ foia_buddy/
 ├── agents/              # Agent implementations
 │   ├── base.py         # Base agent class and registry
 │   ├── coordinator.py  # Main coordination agent
-│   ├── document_researcher.py  # Document search agent
+│   ├── public_foia_search.py   # Public FOIA library search agent
+│   ├── document_researcher.py  # Local document search agent
 │   └── report_generator.py     # Report creation agent
 ├── models/             # Data models and messages
 ├── utils/              # NVIDIA client and utilities

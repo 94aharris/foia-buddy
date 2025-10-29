@@ -29,6 +29,7 @@ Your role is to:
 
 Available Sub-Agents:
 - document_researcher: Searches local document repositories for relevant files
+- public_foia_search: Searches the State Department's public FOIA library for previously released documents
 - report_generator: Creates comprehensive reports from gathered information
 
 Use the ReAct pattern:
@@ -95,7 +96,7 @@ Provide a detailed analysis and execution plan for processing this request using
             result_data = {
                 "coordination_plan": plan_data,
                 "raw_response": content,
-                "available_agents": ["document_researcher", "report_generator"],
+                "available_agents": ["document_researcher", "public_foia_search", "report_generator"],
                 "execution_sequence": self._create_execution_sequence(plan_data)
             }
 
@@ -124,14 +125,19 @@ Provide a detailed analysis and execution plan for processing this request using
             "analysis": content[:500] + "..." if len(content) > 500 else content,
             "execution_plan": [
                 {
-                    "agent": "document_researcher",
-                    "task": "Search for relevant documents",
+                    "agent": "public_foia_search",
+                    "task": "Search public FOIA library for previously released documents",
                     "priority": 1
+                },
+                {
+                    "agent": "document_researcher",
+                    "task": "Search local document repository for relevant files",
+                    "priority": 2
                 },
                 {
                     "agent": "report_generator",
                     "task": "Generate final FOIA response report",
-                    "priority": 2
+                    "priority": 3
                 }
             ],
             "priority": 3,

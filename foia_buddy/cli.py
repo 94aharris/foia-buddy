@@ -7,7 +7,13 @@ import time
 import json
 
 from .utils import NvidiaClient
-from .agents import AgentRegistry, CoordinatorAgent, DocumentResearcherAgent, ReportGeneratorAgent
+from .agents import (
+    AgentRegistry,
+    CoordinatorAgent,
+    DocumentResearcherAgent,
+    ReportGeneratorAgent,
+    PublicFOIASearchAgent
+)
 from .models import TaskMessage, FOIARequest
 
 
@@ -24,11 +30,13 @@ class FOIAProcessor:
         # Create agents
         coordinator = CoordinatorAgent(self.nvidia_client)
         doc_researcher = DocumentResearcherAgent(self.nvidia_client)
+        public_foia_search = PublicFOIASearchAgent(self.nvidia_client)
         report_generator = ReportGeneratorAgent(self.nvidia_client)
 
         # Register agents
         self.registry.register(coordinator)
         self.registry.register(doc_researcher)
+        self.registry.register(public_foia_search)
         self.registry.register(report_generator)
 
     async def process_foia_request(self, input_file: str, output_dir: str) -> Dict[str, Any]:
@@ -70,8 +78,30 @@ class FOIAProcessor:
 
             click.echo(f"✅ Coordination complete. Plan: {coord_result.data.get('execution_sequence', [])}")
 
-            # Step 2: Execute document research
-            click.echo("📚 Starting document research...")
+            # Step 2: Search public FOIA library
+            click.echo("🔍 Searching public FOIA library...")
+            public_search = self.registry.get_agent("public_foia_search")
+
+            public_task = TaskMessage(
+                task_id="public_search_001",
+                agent_type="public_foia_search",
+                instructions="Search public FOIA library for previously released documents",
+                context={
+                    "foia_request": foia_content,
+                    "coordination_plan": coord_result.data
+                }
+            )
+
+            public_result = await public_search.execute(public_task)
+            results["agent_results"]["public_foia_search"] = public_result.dict()
+
+            if not public_result.success:
+                click.echo("⚠️ Public FOIA search encountered issues, continuing...")
+            else:
+                click.echo(f"✅ Public search complete. Found {public_result.data.get('total_documents_found', 0)} publicly available documents")
+
+            # Step 3: Execute local document research
+            click.echo("📚 Starting local document research...")
             doc_researcher = self.registry.get_agent("document_researcher")
 
             research_task = TaskMessage(
@@ -80,7 +110,8 @@ class FOIAProcessor:
                 instructions="Search for documents relevant to FOIA request",
                 context={
                     "foia_request": foia_content,
-                    "coordination_plan": coord_result.data
+                    "coordination_plan": coord_result.data,
+                    "public_documents": public_result.data if public_result.success else {}
                 }
             )
 
@@ -88,11 +119,11 @@ class FOIAProcessor:
             results["agent_results"]["document_researcher"] = research_result.dict()
 
             if not research_result.success:
-                click.echo("⚠️ Document research failed, continuing with available data...")
+                click.echo("⚠️ Local document research failed, continuing with available data...")
 
-            click.echo(f"✅ Research complete. Found {research_result.data.get('relevant_documents_found', 0)} relevant documents")
+            click.echo(f"✅ Local research complete. Found {research_result.data.get('relevant_documents_found', 0)} relevant documents")
 
-            # Step 3: Generate report
+            # Step 4: Generate report
             click.echo("📝 Generating final report...")
             report_generator = self.registry.get_agent("report_generator")
 
@@ -103,6 +134,7 @@ class FOIAProcessor:
                 context={
                     "foia_request": foia_content,
                     "research_results": research_result.data,
+                    "public_foia_results": public_result.data if public_result.success else {},
                     "coordination_plan": coord_result.data
                 }
             )
@@ -115,7 +147,7 @@ class FOIAProcessor:
 
             click.echo("✅ Report generation complete")
 
-            # Step 4: Save outputs
+            # Step 5: Save outputs
             self._save_outputs(output_path, report_result.data, results)
 
             results["status"] = "completed"
