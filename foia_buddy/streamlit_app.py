@@ -403,11 +403,28 @@ def main():
         - `nvidia/nemotron-parse`
         """)
 
-    # Main content area with tabs
-    tab1, tab2, tab3 = st.tabs(["📝 Submit Request", "📊 Processing Status", "📄 View Results"])
+    # Initialize active tab in session state
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = "📝 Submit Request"
+
+    # Auto-switch to processing tab if processing started
+    if st.session_state.get('processing', False) and st.session_state.active_tab == "📝 Submit Request":
+        st.session_state.active_tab = "📊 Processing Status"
+
+    # Tab selector
+    selected_tab = st.radio(
+        "Navigation",
+        ["📝 Submit Request", "📊 Processing Status", "📄 View Results"],
+        index=["📝 Submit Request", "📊 Processing Status", "📄 View Results"].index(st.session_state.active_tab),
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    st.session_state.active_tab = selected_tab
+    st.divider()
 
     # Tab 1: Submit Request
-    with tab1:
+    if selected_tab == "📝 Submit Request":
         st.header("Submit FOIA Request")
 
         # Request input method
@@ -451,12 +468,13 @@ def main():
                 st.session_state.foia_content = foia_content
                 st.session_state.output_dir = output_dir
                 st.session_state.api_key = api_key
+                st.session_state.active_tab = "📊 Processing Status"  # Switch to processing tab
                 st.rerun()
             else:
                 st.error("Please enter a FOIA request before submitting")
 
     # Tab 2: Processing Status
-    with tab2:
+    elif selected_tab == "📊 Processing Status":
         st.header("Real-Time Processing Status")
 
         if st.session_state.get('processing', False):
@@ -545,7 +563,7 @@ def main():
             st.info("👈 Submit a FOIA request in the 'Submit Request' tab to begin processing")
 
     # Tab 3: View Results
-    with tab3:
+    elif selected_tab == "📄 View Results":
         st.header("Generated Reports & Documents")
 
         if st.session_state.get('results'):
