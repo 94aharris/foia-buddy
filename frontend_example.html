@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOIA-Buddy API Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #76b900, #a3d966);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(118, 185, 0, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            color: #76b900;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+
+        textarea, input[type="text"], input[type="email"], input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(118, 185, 0, 0.3);
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+
+        textarea {
+            min-height: 200px;
+            resize: vertical;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #76b900;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #76b900, #5a8c00);
+            color: white;
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 185, 0, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-card {
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status-card.visible {
+            display: block;
+        }
+
+        .request-id {
+            background: rgba(118, 185, 0, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #76b900;
+        }
+
+        .progress-container {
+            margin: 1.5rem 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #76b900, #a3d966);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            margin-top: 0.5rem;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .agent-updates {
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .agent-update {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid #76b900;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 4px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .agent-update .agent-name {
+            color: #76b900;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .agent-update .timestamp {
+            color: #64748b;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-update .message {
+            color: #cbd5e1;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.pending {
+            background: rgba(234, 179, 8, 0.2);
+            color: #fbbf24;
+        }
+
+        .status-badge.processing {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+
+        .status-badge.completed {
+            background: rgba(118, 185, 0, 0.2);
+            color: #76b900;
+        }
+
+        .status-badge.failed {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .results-section {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .results-section.visible {
+            display: block;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .result-card {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid rgba(118, 185, 0, 0.2);
+            transition: transform 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-2px);
+            border-color: #76b900;
+        }
+
+        .result-card h3 {
+            color: #76b900;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .result-card p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .btn-secondary {
+            background: rgba(118, 185, 0, 0.2);
+            color: #76b900;
+            border: 1px solid #76b900;
+            margin-top: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(118, 185, 0, 0.3);
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid rgba(118, 185, 0, 0.2);
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #76b900;
+            border-bottom-color: #76b900;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 FOIA-Buddy API Frontend</h1>
+            <p class="subtitle">Agentic FOIA Request Processing with NVIDIA Nemotron</p>
+        </header>
+
+        <!-- API Configuration -->
+        <div class="card">
+            <h2>⚙️ API Configuration</h2>
+            <div class="form-group">
+                <label for="apiUrl">API Base URL</label>
+                <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+            </div>
+        </div>
+
+        <!-- Submit Request Section -->
+        <div class="card">
+            <h2>📝 Submit FOIA Request</h2>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('text')">Text Input</button>
+                <button class="tab" onclick="switchTab('file')">File Upload</button>
+            </div>
+
+            <!-- Text Input Tab -->
+            <div id="textTab" class="tab-content active">
+                <div class="form-group">
+                    <label for="requestContent">FOIA Request Content (Markdown)</label>
+                    <textarea id="requestContent" placeholder="# FOIA Request
+
+To: [Government Agency]
+Date: [Current Date]
+
+Subject: Request for Records Under the Freedom of Information Act
+
+I am writing to request access to the following records:
+
+1. Documents related to...
+2. Communications regarding...
+3. Reports on...
+
+[Additional details...]"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="requesterName">Requester Name (Optional)</label>
+                    <input type="text" id="requesterName" placeholder="John Doe">
+                </div>
+
+                <div class="form-group">
+                    <label for="requesterEmail">Requester Email (Optional)</label>
+                    <input type="email" id="requesterEmail" placeholder="john.doe@example.com">
+                </div>
+
+                <button class="btn" onclick="submitRequest()">Submit Request</button>
+            </div>
+
+            <!-- File Upload Tab -->
+            <div id="fileTab" class="tab-content">
+                <div class="info-box">
+                    📄 Upload a markdown (.md) or text (.txt) file containing your FOIA request.
+                </div>
+
+                <div class="form-group">
+                    <label for="fileInput">Select File</label>
+                    <input type="file" id="fileInput" accept=".md,.txt">
+                </div>
+
+                <div class="form-group">
+                    <label for="fileRequesterName">Requester Name (Optional)</label>
+                    <input type="text" id="fileRequesterName" placeholder="John Doe">
+                </div>
+
+                <div class="form-group">
+                    <label for="fileRequesterEmail">Requester Email (Optional)</label>
+                    <input type="email" id="fileRequesterEmail" placeholder="john.doe@example.com">
+                </div>
+
+                <button class="btn" onclick="submitFileRequest()">Upload & Submit</button>
+            </div>
+        </div>
+
+        <!-- Status Tracking Section -->
+        <div id="statusCard" class="card status-card">
+            <h2>📊 Processing Status</h2>
+
+            <div class="request-id">
+                <strong>Request ID:</strong> <span id="displayRequestId">-</span>
+            </div>
+
+            <div>
+                <strong>Status:</strong> <span id="statusBadge" class="status-badge pending">Pending</span>
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="progressText" class="progress-text">0% Complete</div>
+            </div>
+
+            <div>
+                <strong>Current Agent:</strong> <span id="currentAgent">-</span>
+            </div>
+
+            <h3 style="margin-top: 1.5rem; color: #cbd5e1;">Real-time Updates</h3>
+            <div id="agentUpdates" class="agent-updates"></div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section">
+                <h3 style="color: #76b900; margin-bottom: 1rem;">📦 Generated Results</h3>
+                <div id="resultsGrid" class="results-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRequestId = null;
+        let websocket = null;
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value;
+        }
+
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (tab === 'text') {
+                document.getElementById('textTab').classList.add('active');
+            } else {
+                document.getElementById('fileTab').classList.add('active');
+            }
+        }
+
+        async function submitRequest() {
+            const content = document.getElementById('requestContent').value.trim();
+            if (!content) {
+                alert('Please enter FOIA request content');
+                return;
+            }
+
+            const payload = {
+                request_content: content,
+                requester_name: document.getElementById('requesterName').value || null,
+                requester_email: document.getElementById('requesterEmail').value || null,
+                priority: 1
+            };
+
+            try {
+                const response = await fetch(`${getApiUrl()}/api/requests/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                const data = await response.json();
+                currentRequestId = data.request_id;
+
+                // Show status card
+                document.getElementById('statusCard').classList.add('visible');
+                document.getElementById('displayRequestId').textContent = data.request_id;
+
+                // Start tracking
+                startWebSocket(data.request_id);
+                pollStatus(data.request_id);
+
+            } catch (error) {
+                alert(`Error submitting request: ${error.message}`);
+            }
+        }
+
+        async function submitFileRequest() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files.length) {
+                alert('Please select a file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const name = document.getElementById('fileRequesterName').value;
+            const email = document.getElementById('fileRequesterEmail').value;
+
+            if (name) formData.append('requester_name', name);
+            if (email) formData.append('requester_email', email);
+            formData.append('priority', '1');
+
+            try {
+                const response = await fetch(`${getApiUrl()}/api/requests/submit-file`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                const data = await response.json();
+                currentRequestId = data.request_id;
+
+                // Show status card
+                document.getElementById('statusCard').classList.add('visible');
+                document.getElementById('displayRequestId').textContent = data.request_id;
+
+                // Start tracking
+                startWebSocket(data.request_id);
+                pollStatus(data.request_id);
+
+            } catch (error) {
+                alert(`Error submitting file: ${error.message}`);
+            }
+        }
+
+        function startWebSocket(requestId) {
+            const wsUrl = getApiUrl().replace('http', 'ws');
+            websocket = new WebSocket(`${wsUrl}/api/ws/${requestId}`);
+
+            websocket.onopen = () => {
+                console.log('WebSocket connected');
+            };
+
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketUpdate(data);
+            };
+
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            websocket.onclose = () => {
+                console.log('WebSocket closed');
+            };
+
+            // Send keepalive pings
+            setInterval(() => {
+                if (websocket.readyState === WebSocket.OPEN) {
+                    websocket.send('ping');
+                }
+            }, 25000);
+        }
+
+        function handleWebSocketUpdate(data) {
+            console.log('WebSocket update:', data);
+
+            if (data.type === 'agent_update') {
+                updateProgress(data.progress);
+                document.getElementById('currentAgent').textContent = data.agent;
+                addAgentUpdate(data);
+            } else if (data.type === 'completed') {
+                updateStatus('completed', data.progress);
+                loadResults(currentRequestId);
+            } else if (data.type === 'error') {
+                updateStatus('failed', 0);
+                showError(data.message);
+            }
+        }
+
+        async function pollStatus(requestId) {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${getApiUrl()}/api/requests/${requestId}/status`);
+                    if (!response.ok) return;
+
+                    const status = await response.json();
+                    updateStatus(status.status, status.progress);
+
+                    if (status.current_agent) {
+                        document.getElementById('currentAgent').textContent = status.current_agent;
+                    }
+
+                    if (status.status === 'completed') {
+                        clearInterval(pollInterval);
+                        loadResults(requestId);
+                    } else if (status.status === 'failed') {
+                        clearInterval(pollInterval);
+                        showError(status.error);
+                    }
+
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 2000);
+        }
+
+        function updateStatus(status, progress) {
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = status;
+            badge.className = `status-badge ${status}`;
+            updateProgress(progress);
+        }
+
+        function updateProgress(progress) {
+            const percentage = Math.round(progress * 100);
+            document.getElementById('progressFill').style.width = `${percentage}%`;
+            document.getElementById('progressText').textContent = `${percentage}% Complete`;
+        }
+
+        function addAgentUpdate(update) {
+            const container = document.getElementById('agentUpdates');
+            const updateDiv = document.createElement('div');
+            updateDiv.className = 'agent-update';
+
+            const timestamp = new Date(update.timestamp || Date.now()).toLocaleTimeString();
+
+            updateDiv.innerHTML = `
+                <div class="agent-name">${update.agent}</div>
+                <div class="timestamp">${timestamp}</div>
+                <div class="message">${update.message}</div>
+            `;
+
+            container.insertBefore(updateDiv, container.firstChild);
+
+            // Keep only last 20 updates
+            while (container.children.length > 20) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        async function loadResults(requestId) {
+            try {
+                const response = await fetch(`${getApiUrl()}/api/requests/${requestId}/results`);
+                if (!response.ok) return;
+
+                const results = await response.json();
+                displayResults(results);
+
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+
+        function displayResults(results) {
+            document.getElementById('resultsSection').classList.add('visible');
+            const grid = document.getElementById('resultsGrid');
+            grid.innerHTML = '';
+
+            const files = results.generated_files || {};
+            const fileDescriptions = {
+                'final_report.md': 'Comprehensive FOIA response report',
+                'executive_summary.md': 'Executive summary of findings',
+                'compliance_notes.md': 'Legal compliance information',
+                'processing_metadata.json': 'Processing metadata and metrics',
+                'redaction_review.txt': 'Items flagged for redaction review'
+            };
+
+            // Add interactive viewer button
+            const viewerCard = document.createElement('div');
+            viewerCard.className = 'result-card';
+            viewerCard.innerHTML = `
+                <h3>🚀 Interactive Viewer</h3>
+                <p>View all results in an interactive tabbed interface</p>
+                <button class="btn btn-secondary" onclick="openViewer('${currentRequestId}')">Open Viewer</button>
+            `;
+            grid.appendChild(viewerCard);
+
+            // Add file cards
+            Object.keys(files).forEach(filename => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.innerHTML = `
+                    <h3>📄 ${filename}</h3>
+                    <p>${fileDescriptions[filename] || 'Generated file'}</p>
+                    <button class="btn btn-secondary" onclick="downloadFile('${currentRequestId}', '${filename}')">Download</button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openViewer(requestId) {
+            window.open(`${getApiUrl()}/api/requests/${requestId}/viewer`, '_blank');
+        }
+
+        async function downloadFile(requestId, filename) {
+            const url = `${getApiUrl()}/api/requests/${requestId}/files/${filename}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>

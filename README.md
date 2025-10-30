@@ -49,7 +49,9 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-### Basic Usage
+### Usage Options
+
+#### Option 1: Command-Line Interface (CLI)
 
 ```bash
 # Process a FOIA request
@@ -58,6 +60,86 @@ foia-buddy -i sample_data/foia-request.md -o response-1/
 # With verbose output
 foia-buddy -i sample_data/foia-request.md -o response-1/ --verbose
 ```
+
+#### Option 2: Streamlit Dashboard (NEW! - RECOMMENDED)
+
+Launch an interactive web dashboard with real-time agent monitoring, beautiful visualizations, and comprehensive result viewing:
+
+```bash
+# Quick launch with helper script
+./run_streamlit.sh
+
+# Or launch directly with streamlit
+streamlit run foia_buddy/streamlit_app.py
+```
+
+The Streamlit dashboard provides:
+- **Interactive Request Submission**: Text input or file upload for FOIA requests
+- **Real-Time Agent Monitoring**: Live progress tracking as agents process your request
+- **Beautiful Dashboard UI**: Modern, responsive interface with NVIDIA-themed styling
+- **Comprehensive Results View**: Tabbed interface for reports, summaries, and parsed documents
+- **One-Click Downloads**: Easy download of all generated reports and metadata
+- **Live Status Updates**: See exactly which agent is working and what it's doing
+- **Inline Document Viewing**: View all generated markdown reports without leaving the browser
+- **Agent Metrics**: Visual timeline of agent execution with success indicators
+
+**Dashboard Features:**
+- 📝 Submit Request Tab: Enter or upload FOIA requests
+- 📊 Processing Status Tab: Real-time progress with agent-by-agent tracking
+- 📄 View Results Tab: Browse all generated documents and download results
+- 🎯 Agent Timeline: See execution flow with timing and success metrics
+- 🧠 Model Information: View which NVIDIA models are being used
+
+**Perfect for:**
+- First-time users wanting a guided experience
+- Monitoring long-running FOIA processing tasks
+- Visualizing agent coordination and workflow
+- Comparing multiple FOIA request results
+
+#### Option 3: API Server
+
+Start the FastAPI server for web-based interaction:
+
+```bash
+# Start the API server
+python -m foia_buddy.server
+
+# Or with custom host/port
+FOIA_API_HOST=0.0.0.0 FOIA_API_PORT=8000 python -m foia_buddy.server
+```
+
+The server provides:
+- **REST API**: Submit requests, check status, retrieve results
+- **WebSocket**: Real-time processing updates
+- **Interactive Frontend**: Web UI for easy interaction
+- **API Documentation**: Auto-generated at `/docs`
+
+**API Endpoints:**
+- `POST /api/requests/submit` - Submit FOIA request
+- `POST /api/requests/submit-file` - Upload FOIA request file
+- `GET /api/requests/{id}/status` - Check processing status
+- `GET /api/requests/{id}/results` - Retrieve completed results
+- `GET /api/requests/{id}/viewer` - View interactive HTML report
+- `WS /api/ws/{id}` - WebSocket for real-time updates
+
+**Try the Frontend:**
+1. Start the API server (see above)
+2. Open `frontend_example.html` in your browser
+3. Submit a FOIA request and watch real-time processing!
+
+### Which Option Should You Choose?
+
+| Feature | CLI | Streamlit Dashboard | API Server |
+|---------|-----|---------------------|------------|
+| **Ease of Use** | Simple commands | 🌟 Most user-friendly | Requires API calls |
+| **Real-Time Monitoring** | Terminal output | 🌟 Beautiful live dashboard | WebSocket support |
+| **Result Viewing** | File system | 🌟 Integrated viewer | Separate client needed |
+| **Best For** | Automation, scripts | 🌟 Interactive exploration | Integration, apps |
+| **Setup Complexity** | ⭐ Minimal | ⭐ Minimal | ⭐⭐ Moderate |
+| **Visualization** | Text only | 🌟 Rich visualizations | Custom frontend needed |
+| **Learning Curve** | Low | 🌟 Lowest | Medium |
+
+**💡 Recommendation:** Start with the **Streamlit Dashboard** for the best experience! It provides real-time visibility into agent workflows with a beautiful, intuitive interface.
 
 ### PDF Parsing with NVIDIA Nemotron Parse
 
@@ -285,9 +367,111 @@ foia-buddy -i sample_data/foia-request.md -o demo-output/
   - Required for `nvidia/nemotron-parse` (PDF parsing with visual understanding)
 - OpenAI-compatible client library
 - Click for CLI interface
+- Streamlit for interactive dashboard (NEW!)
+- FastAPI and Uvicorn for API server
 - Pydantic for data validation
 - Requests and BeautifulSoup4 for HTML parsing
 - Local PDF files in `sample_data/pdfs/` for demonstration
+
+## 🌐 API Server Documentation
+
+### Starting the Server
+
+```bash
+# Install FastAPI dependencies (if not already installed)
+pip install fastapi uvicorn websockets python-multipart
+
+# Start the server
+python -m foia_buddy.server
+```
+
+The server will start at `http://localhost:8000` with:
+- **API Documentation**: http://localhost:8000/docs (Swagger UI)
+- **Alternative Docs**: http://localhost:8000/redoc (ReDoc)
+- **Health Check**: http://localhost:8000/health
+
+### API Usage Examples
+
+#### Submit a Request (cURL)
+
+```bash
+# Submit text request
+curl -X POST http://localhost:8000/api/requests/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_content": "# FOIA Request\n\nI request documents related to AI policy...",
+    "requester_name": "John Doe",
+    "requester_email": "john@example.com",
+    "priority": 1
+  }'
+
+# Response:
+# {
+#   "request_id": "foia-abc123def456",
+#   "status": "pending",
+#   "message": "FOIA request submitted successfully...",
+#   "estimated_time_minutes": 3
+# }
+```
+
+#### Submit a File
+
+```bash
+# Upload a markdown file
+curl -X POST http://localhost:8000/api/requests/submit-file \
+  -F "file=@/path/to/request.md" \
+  -F "requester_name=John Doe" \
+  -F "requester_email=john@example.com"
+```
+
+#### Check Status
+
+```bash
+# Get processing status
+curl http://localhost:8000/api/requests/foia-abc123def456/status
+
+# Response includes progress, current agent, and status
+```
+
+#### Get Results
+
+```bash
+# Retrieve completed results
+curl http://localhost:8000/api/requests/foia-abc123def456/results
+
+# Download specific file
+curl http://localhost:8000/api/requests/foia-abc123def456/files/final_report.md
+```
+
+#### WebSocket Connection (JavaScript)
+
+```javascript
+const ws = new WebSocket('ws://localhost:8000/api/ws/foia-abc123def456');
+
+ws.onmessage = (event) => {
+    const update = JSON.parse(event.data);
+    console.log(`Agent: ${update.agent}, Progress: ${update.progress}`);
+};
+```
+
+### Using the Web Frontend
+
+1. **Start the API server** (see above)
+2. **Open [frontend_example.html](frontend_example.html)** in your browser
+3. **Configure API URL** if needed (default: http://localhost:8000)
+4. **Submit a request** via text input or file upload
+5. **Watch real-time updates** as agents process your request
+6. **Download results** when processing completes
+
+### API Features
+
+- ✅ **RESTful Design**: Standard HTTP methods and status codes
+- ✅ **Real-time Updates**: WebSocket support for live progress
+- ✅ **Auto-generated Docs**: Swagger UI at `/docs`
+- ✅ **CORS Enabled**: Ready for frontend integration
+- ✅ **File Upload**: Support for .md and .txt files
+- ✅ **Request Management**: List, track, and delete requests
+- ✅ **Statistics**: System metrics and performance data
 
 ## 📝 Development
 
@@ -303,16 +487,21 @@ foia_buddy/
 │   ├── document_researcher.py  # Local markdown document search agent
 │   ├── report_generator.py     # Report creation agent
 │   ├── html_report_generator.py # HTML visualization report agent
-│   └── interactive_ui_generator.py # Interactive tabbed UI agent (NEW!)
+│   └── interactive_ui_generator.py # Interactive tabbed UI agent
 ├── models/             # Data models and messages
 ├── utils/              # NVIDIA client and utilities
-└── cli.py              # Command-line interface
+├── cli.py              # Command-line interface
+├── server.py           # FastAPI server
+└── streamlit_app.py    # Streamlit dashboard (NEW! - RECOMMENDED)
 
 sample_data/
 ├── pdfs/               # Place PDF files here for parsing
 │   └── README.md       # Instructions for adding PDFs
 ├── documents/          # Markdown documents for research
 └── foia-request.md     # Sample FOIA request
+
+run_streamlit.sh        # Quick launcher for Streamlit dashboard (NEW!)
+frontend_example.html   # Interactive web UI for API
 ```
 
 ### Adding New Agents
@@ -346,6 +535,7 @@ sample_data/
 - Comprehensive report generation
 - Interactive HTML reports with execution diagrams showing models used
 - **🚀 NEW: Interactive tabbed UI viewer** that auto-opens in browser with beautiful markdown rendering
+- **🎯 NEW: Streamlit Dashboard** with real-time agent monitoring and comprehensive result viewing
 
 ⚠️ **Known Limitations:**
 - **Public FOIA Library Search**: The State Department's FOIA portal (foia.state.gov) does not have a working public API for automated searches. All GET/POST requests return zero results.
