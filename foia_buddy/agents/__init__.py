@@ -6,6 +6,8 @@ from .public_foia_search import PublicFOIASearchAgent
 from .local_pdf_search import LocalPDFSearchAgent
 from .pdf_parser import PDFParserAgent
 from .html_report_generator import HTMLReportGeneratorAgent
+from .interactive_ui_generator import InteractiveUIGeneratorAgent
+from .launcher_ui_generator import LauncherUIGeneratorAgent
 
 __all__ = [
     "BaseAgent",
@@ -16,5 +18,7 @@ __all__ = [
     "PublicFOIASearchAgent",
     "LocalPDFSearchAgent",
     "PDFParserAgent",
-    "HTMLReportGeneratorAgent"
+    "HTMLReportGeneratorAgent",
+    "InteractiveUIGeneratorAgent",
+    "LauncherUIGeneratorAgent"
 ]

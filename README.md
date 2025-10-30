@@ -85,18 +85,25 @@ The parsed markdown files will be saved to `response-1/parsed_documents/` for re
 ### Example Output Structure
 
 ```
-response-1/
-├── final_report.md           # Comprehensive FOIA response (nvidia-nemotron-nano-9b-v2)
-├── executive_summary.md      # Executive summary of findings
-├── compliance_notes.md       # Legal compliance information
-├── redaction_review.txt      # Items flagged for redaction
-├── processing_metadata.json  # Processing details and agent metrics
-├── processing_report.html    # Interactive HTML report with Mermaid diagram and model info
-├── downloaded_pdfs/          # PDFs from public FOIA library (if available)
-│   └── *.pdf                 # Downloaded public documents
-└── parsed_documents/         # Markdown versions of PDFs (nvidia/nemotron-parse)
-    └── *.md                  # Parsed document content with visual descriptions
+output/
+├── index.html                # 🎯 NEW: Launcher UI - Select and view any report
+├── response-1/
+│   ├── interactive_viewer.html  # 🚀 Interactive tabbed UI with all results
+│   ├── final_report.md           # Comprehensive FOIA response (nvidia-nemotron-nano-9b-v2)
+│   ├── executive_summary.md      # Executive summary of findings
+│   ├── compliance_notes.md       # Legal compliance information
+│   ├── redaction_review.txt      # Items flagged for redaction
+│   ├── processing_metadata.json  # Processing details and agent metrics
+│   ├── processing_report.html    # Interactive HTML report with Mermaid diagram and model info
+│   ├── downloaded_pdfs/          # PDFs from public FOIA library (if available)
+│   │   └── *.pdf                 # Downloaded public documents
+│   └── parsed_documents/         # Markdown versions of PDFs (nvidia/nemotron-parse)
+│       └── *.md                  # Parsed document content with visual descriptions
+└── response-2/
+    └── ...                       # Additional processed requests
 ```
+
+**🚀 Key Feature**: When processing completes, the **Launcher UI** (`output/index.html`) automatically opens in your browser, showing all available reports with "View Report" buttons to access each interactive viewer!
 
 ## 🤖 Agent Architecture
 
@@ -113,6 +120,8 @@ FOIA-Buddy leverages multiple NVIDIA models for different tasks:
 | **Public FOIA Search Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Web scraping analysis, document relevance determination |
 | **Report Generator Agent** | `nvidia/nvidia-nemotron-nano-9b-v2` | Report synthesis, compliance analysis, content generation |
 | **HTML Report Generator** | Non-LLM (Direct Processing) | HTML generation, Mermaid diagram creation |
+| **Interactive UI Generator** | Non-LLM (Direct Processing) | Tabbed UI generation, auto-browser launch, markdown rendering |
+| **Launcher UI Generator** | Non-LLM (Direct Processing) | Report selection UI, dashboard generation, multi-report management |
 
 **Key Model Features:**
 - **nvidia-nemotron-nano-9b-v2**: Advanced reasoning model with thinking tokens (512-1024 tokens) for complex decision-making
@@ -188,6 +197,20 @@ FOIA-Buddy leverages multiple NVIDIA models for different tasks:
   - Interactive Mermaid.js flow diagrams
   - Detailed metrics and agent reasoning display
 - **Outputs**: Interactive HTML report (`processing_report.html`) with embedded diagrams showing complete agent workflow execution
+
+### Interactive UI Generator Agent
+
+- **Role**: Creates a beautiful tabbed interface for comprehensive FOIA response viewing
+- **Model**: Direct processing (non-LLM agent)
+- **Capabilities**: UI generation, markdown rendering, browser auto-launch
+- **Features**:
+  - **Tabbed Navigation**: Switch between FOIA Request, Final Report, and Processing Workflow
+  - **Beautiful Markdown Rendering**: GitHub-flavored markdown with syntax highlighting
+  - **Dark Theme UI**: Modern, professional dark theme with smooth transitions
+  - **Auto-Browser Launch**: Automatically opens in default browser when processing completes
+  - **Responsive Design**: Works perfectly on all screen sizes
+  - **Keyboard Shortcuts**: Ctrl/Cmd + 1/2/3 for quick tab switching
+- **Outputs**: Interactive viewer (`interactive_viewer.html`) that auto-opens showing all results in an intuitive interface
 
 ## 🔧 Extensible Architecture
 
@@ -279,7 +302,8 @@ foia_buddy/
 │   ├── pdf_parser.py   # PDF to markdown parser agent (Nemotron VL)
 │   ├── document_researcher.py  # Local markdown document search agent
 │   ├── report_generator.py     # Report creation agent
-│   └── html_report_generator.py # HTML visualization report agent
+│   ├── html_report_generator.py # HTML visualization report agent
+│   └── interactive_ui_generator.py # Interactive tabbed UI agent (NEW!)
 ├── models/             # Data models and messages
 ├── utils/              # NVIDIA client and utilities
 └── cli.py              # Command-line interface
@@ -321,6 +345,7 @@ sample_data/
 - Multi-agent coordination with ReAct pattern
 - Comprehensive report generation
 - Interactive HTML reports with execution diagrams showing models used
+- **🚀 NEW: Interactive tabbed UI viewer** that auto-opens in browser with beautiful markdown rendering
 
 ⚠️ **Known Limitations:**
 - **Public FOIA Library Search**: The State Department's FOIA portal (foia.state.gov) does not have a working public API for automated searches. All GET/POST requests return zero results.

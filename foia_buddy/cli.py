@@ -15,7 +15,9 @@ from .agents import (
     PublicFOIASearchAgent,
     LocalPDFSearchAgent,
     PDFParserAgent,
-    HTMLReportGeneratorAgent
+    HTMLReportGeneratorAgent,
+    InteractiveUIGeneratorAgent,
+    LauncherUIGeneratorAgent
 )
 from .models import TaskMessage, FOIARequest
 
@@ -38,6 +40,8 @@ class FOIAProcessor:
         pdf_parser = PDFParserAgent(self.nvidia_client)
         report_generator = ReportGeneratorAgent(self.nvidia_client)
         html_report_generator = HTMLReportGeneratorAgent(self.nvidia_client)
+        interactive_ui_generator = InteractiveUIGeneratorAgent(self.nvidia_client)
+        launcher_ui_generator = LauncherUIGeneratorAgent(self.nvidia_client)
 
         # Register agents
         self.registry.register(coordinator)
@@ -47,6 +51,8 @@ class FOIAProcessor:
         self.registry.register(pdf_parser)
         self.registry.register(report_generator)
         self.registry.register(html_report_generator)
+        self.registry.register(interactive_ui_generator)
+        self.registry.register(launcher_ui_generator)
 
     async def process_foia_request(self, input_file: str, output_dir: str) -> Dict[str, Any]:
         """Process a FOIA request through the agent pipeline."""
@@ -223,6 +229,60 @@ class FOIAProcessor:
                 click.echo(f"✅ HTML report generated: {html_output_path}")
             else:
                 click.echo("⚠️ HTML report generation failed, continuing...")
+
+            # Step 8: Generate interactive UI and auto-open
+            click.echo("🚀 Generating interactive tabbed UI...")
+            ui_generator = self.registry.get_agent("interactive_ui_generator")
+
+            ui_task = TaskMessage(
+                task_id="interactive_ui_001",
+                agent_type="interactive_ui_generator",
+                instructions="Generate interactive tabbed UI with FOIA request, final report, and processing workflow",
+                context={
+                    "output_dir": str(output_path),
+                    "input_file": input_file,
+                    "auto_open": False  # Don't auto-open individual report
+                }
+            )
+
+            ui_result = await ui_generator.execute(ui_task)
+            results["agent_results"]["interactive_ui_generator"] = ui_result.dict()
+
+            if ui_result.success:
+                ui_file = ui_result.data.get("ui_file", "")
+                click.echo(f"✅ Interactive UI generated: {ui_file}")
+            else:
+                click.echo("⚠️ Interactive UI generation failed, continuing...")
+
+            # Step 9: Generate/Update launcher UI
+            click.echo("📋 Updating launcher UI...")
+            launcher_generator = self.registry.get_agent("launcher_ui_generator")
+
+            # Get base output directory (parent of current output_path)
+            base_output_dir = output_path.parent
+
+            launcher_task = TaskMessage(
+                task_id="launcher_ui_001",
+                agent_type="launcher_ui_generator",
+                instructions="Generate launcher UI for selecting and viewing FOIA reports",
+                context={
+                    "output_dir": str(base_output_dir),
+                    "auto_open": True  # Auto-open launcher instead
+                }
+            )
+
+            launcher_result = await launcher_generator.execute(launcher_task)
+            results["agent_results"]["launcher_ui_generator"] = launcher_result.dict()
+
+            if launcher_result.success:
+                launcher_file = launcher_result.data.get("launcher_file", "")
+                reports_found = launcher_result.data.get("reports_found", 0)
+                click.echo(f"✅ Launcher UI generated: {launcher_file}")
+                click.echo(f"📊 Found {reports_found} report(s) in output directory")
+                if launcher_result.data.get("auto_opened"):
+                    click.echo("🌐 Opening launcher in your browser...")
+            else:
+                click.echo("⚠️ Launcher UI generation failed, continuing...")
 
             click.echo(f"🎉 FOIA processing complete! Results saved to: {output_dir}")
             return results

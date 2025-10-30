@@ -41,7 +41,11 @@ Writing Style:
 - Complete source attribution
 - Objective tone without speculation
 
-Always structure your reports in markdown format with clear sections and proper formatting."""
+CRITICAL OUTPUT FORMAT INSTRUCTIONS:
+- Generate your report in markdown format with clear sections and proper formatting
+- DO NOT wrap your response in code blocks (no ```markdown or ``` markers)
+- Output the raw markdown directly without any wrapper
+- Start directly with the markdown heading (e.g., # FOIA Response Report)"""
 
     async def execute(self, task: TaskMessage) -> AgentResult:
         """Execute report generation task."""
@@ -132,10 +136,29 @@ COORDINATION PLAN:
 {coordination_plan}
 
 Create a professional, well-structured report that addresses the FOIA request with complete source attribution and compliance notes.
+
+IMPORTANT: Output raw markdown directly - DO NOT wrap your response in ```markdown code blocks.
 """}
         ]
 
-        return await self._generate_response(messages, use_thinking=True)
+        response = await self._generate_response(messages, use_thinking=True)
+
+        # Post-process to remove any markdown code block wrappers
+        if "content" in response and response["content"]:
+            content = response["content"].strip()
+
+            # Remove ```markdown and ``` wrappers if present
+            if content.startswith("```markdown"):
+                content = content[len("```markdown"):].strip()
+            elif content.startswith("```"):
+                content = content[3:].strip()
+
+            if content.endswith("```"):
+                content = content[:-3].strip()
+
+            response["content"] = content
+
+        return response
 
     def _prepare_research_summary(self, research_results: Dict[str, Any]) -> str:
         """Prepare research results for inclusion in the prompt."""
