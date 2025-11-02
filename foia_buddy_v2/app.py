@@ -132,9 +132,10 @@ def initialize_session_state():
         st.session_state.processing_step = -1
 
 
-def log_agent_event(agent_name: str, event_type: str, message):
+def log_agent_event(agent_name: str, event_type: str, message, state=None):
     """
     Log agent events to terminal with color coding for visibility.
+    Also adds to UI activity log if state is provided.
     """
     # Choose color based on event type
     if event_type in ["active", "thinking", "planning", "executing"]:
@@ -168,12 +169,19 @@ def log_agent_event(agent_name: str, event_type: str, message):
         msg_str = f"{message.from_agent} → {message.to_agent}: {message.task}"
 
     # Truncate long messages for cleaner output
+    truncated_msg = msg_str
     if event_type == "reasoning" and len(msg_str) > 150:
-        msg_str = msg_str[:150] + "..."
+        truncated_msg = msg_str[:150] + "..."
 
     # Log to terminal with color
-    log_line = f"{color}{icon} [{agent_name:20s}] {event_type:15s} │ {msg_str}{Colors.ENDC}"
+    log_line = f"{color}{icon} [{agent_name:20s}] {event_type:15s} │ {truncated_msg}{Colors.ENDC}"
     logger.info(log_line)
+
+    # Add to UI activity log (keep original message, not truncated)
+    if state is not None:
+        # Log most event types for visibility (avoid only very verbose ones)
+        if event_type not in ["progress"]:  # Exclude only progress updates to reduce noise
+            state.add_activity_log(agent_name, event_type, msg_str, icon)
 
 
 def create_ui_callback(state: ApplicationState):
@@ -182,8 +190,8 @@ def create_ui_callback(state: ApplicationState):
     Also logs all events to terminal for server-side visibility.
     """
     def callback(agent_name: str, event_type: str, message):
-        # Log to terminal first
-        log_agent_event(agent_name, event_type, message)
+        # Log to terminal and UI activity log
+        log_agent_event(agent_name, event_type, message, state)
         # Update agent status
         if agent_name not in state.agent_statuses:
             state.agent_statuses[agent_name] = AgentStatus(
@@ -434,6 +442,35 @@ def main():
             st.session_state.selected_request = scenario["request"]
             st.session_state.selected_topics = scenario["topics"]
             st.rerun()
+
+        st.markdown("---")
+
+        # Live Activity Log in sidebar
+        st.markdown("## 📋 Live Activity Log")
+
+        if state.activity_log:
+            st.caption(f"{len(state.activity_log)} events")
+
+            # Show most recent 15 log entries in reverse (newest first)
+            recent_logs = state.activity_log[-15:]
+            recent_logs.reverse()
+
+            for log_entry in recent_logs:
+                agent = log_entry['agent']
+                event = log_entry['event']
+                message = log_entry['message']
+                icon = log_entry['icon']
+
+                # Truncate for sidebar
+                display_msg = message
+                if len(message) > 60:
+                    display_msg = message[:60] + "..."
+
+                st.markdown(f"{icon} **{agent}**")
+                st.caption(f"_{event}_ · {display_msg}")
+                st.markdown("")  # Add spacing
+        else:
+            st.info("⏳ Waiting for activity...")
 
         st.markdown("---")
 

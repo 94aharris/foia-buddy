@@ -48,12 +48,16 @@ class ApplicationState:
     coordination_flow: List[Dict[str, Any]] = field(default_factory=list)
     timeline_events: List[Dict[str, Any]] = field(default_factory=list)
 
+    # Live activity log for UI display
+    activity_log: List[Dict[str, str]] = field(default_factory=list)
+
     def reset(self):
         """Reset state for new request."""
         self.agent_statuses = {}
         self.decision_points = []
         self.agent_handoffs = []
         self.reasoning_stream = []
+        self.activity_log = []
         self.metrics = {
             "docs_scanned": 0,
             "docs_scanned_delta": 0,
@@ -95,6 +99,15 @@ class ApplicationState:
     def add_reasoning(self, text: str):
         """Add reasoning message to stream."""
         self.reasoning_stream.append(text)
+
+    def add_activity_log(self, agent_name: str, event_type: str, message: str, icon: str = "ℹ️"):
+        """Add entry to activity log for UI display."""
+        self.activity_log.append({
+            "agent": agent_name,
+            "event": event_type,
+            "message": message,
+            "icon": icon
+        })
 
     def add_decision(self, decision: DecisionPoint):
         """Add decision point."""
